@@ -57,8 +57,7 @@ O dataset possui **14.999 linhas** e **10 colunas**, incluindo:
 jupyter notebook Capstone.ipynb
 
 ## 📈 Resultados esperados
-    ```txt
-    Modelo final: Random Forest, com acurácia aproximada de 88–90%.
+>Modelo final: Random Forest, com acurácia aproximada de 88–90%.
 
     Principais fatores de saída:
 
