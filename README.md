@@ -44,38 +44,38 @@ O dataset possui **14.999 linhas** e **10 colunas**, incluindo:
    cd salifort-hr-churn
 
 2. Crie um ambiente virtual:
-
-python -m venv .venv
-source .venv/bin/activate   # Linux/Mac
-.venv\Scripts\activate      # Windows
+    ```bash
+    python -m venv .venv
+    source .venv/bin/activate   # Linux/Mac
+    .venv\Scripts\activate      # Windows
 
 3. Instale as dependências:
-
-pip install -r requirements.txt
+    ```bash
+    pip install -r requirements.txt
 
 4. Abra o Jupyter Notebook:
-
 jupyter notebook Capstone.ipynb
 
 📈 Resultados esperados
+    ```txt
+    Modelo final: Random Forest, com acurácia aproximada de 88–90%.
 
-Modelo final: Random Forest, com acurácia aproximada de 88–90%.
+    Principais fatores de saída:
 
-Principais fatores de saída:
+    Nível de satisfação baixo
 
-Nível de satisfação baixo
+    Carga horária excessiva ou insuficiente
 
-Carga horária excessiva ou insuficiente
+    Falta de promoções ao longo do tempo
 
-Falta de promoções ao longo do tempo
-
-Salário baixo
+    Salário baixo
 
 
 ✨ Autor
 
 👤 Leonardo Filho
-Projeto desenvolvido como parte do Google Advanced Data Analytics Certificate.
+    ```txt
+    Projeto desenvolvido como parte do Google Advanced Data Analytics Certificate.
 
 
 ---
