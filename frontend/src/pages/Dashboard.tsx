@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { getMetrics, getPreview } from "../lib/api";
 import KpiCard from "../components/KpiCard";
 import BarChartSimple from "../components/BarChartSimple";
+import DataTable from "../components/DataTable";
 
 type Metrics = {
   churn_rate?: number;
@@ -28,7 +29,7 @@ export default function Dashboard() {
     (async () => {
       try {
         const m = await getMetrics();
-        const p = await getPreview(20);
+        const p = await getPreview(200); // pega mais linhas p/ paginação da tabela
         setMetrics(m);
         setPreview(p);
       } catch (e) {
@@ -39,7 +40,7 @@ export default function Dashboard() {
   }, []);
 
   if (error) {
-    return <div style={{color:"var(--muted)"}}>{error}</div>;
+    return <div className="text-[color:var(--muted)]">{error}</div>;
   }
   if (!metrics || !preview) {
     return <div className="text-[color:var(--muted)]">Carregando…</div>;
@@ -47,10 +48,20 @@ export default function Dashboard() {
 
   // Fallbacks seguros
   const churn = Number(metrics.churn_rate ?? 0);
-  const avgH  = Number(metrics.avg_hours ?? 0);
-  const avgP  = Number(metrics.avg_projects ?? 0);
+  const avgH = Number(metrics.avg_hours ?? 0);
+  const avgP = Number(metrics.avg_projects ?? 0);
   const hoursByLeft = metrics.hours_by_left ?? {};
   const projectsHist = metrics.projects_hist ?? {};
+
+  const hoursData = [
+    { name: "stayed", value: Number(hoursByLeft["0"] ?? hoursByLeft.stayed ?? 0) },
+    { name: "left", value: Number(hoursByLeft["1"] ?? hoursByLeft.left ?? 0) },
+  ];
+
+  const projectsData = Object.entries(projectsHist).map(([k, v]) => ({
+    name: String(k),
+    value: Number(v),
+  }));
 
   return (
     <div className="space-y-6">
@@ -67,47 +78,21 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card p-4">
           <div className="section-title mb-2">Horas médias — stayed vs left</div>
-          <BarChartSimple
-            data={[
-              { name: "stayed", value: Number(hoursByLeft["0"] ?? hoursByLeft.stayed ?? 0) },
-              { name: "left",   value: Number(hoursByLeft["1"] ?? hoursByLeft.left   ?? 0) },
-            ]}
-          />
+          <BarChartSimple data={hoursData} color="#38bdf8" yLabel="horas" />
         </div>
 
         <div className="card p-4">
           <div className="section-title mb-2">Distribuição — nº de projetos</div>
-          <BarChartSimple
-            data={Object.entries(projectsHist).map(([k, v]) => ({
-              name: String(k),
-              value: Number(v),
-            }))}
-          />
+          <BarChartSimple data={projectsData} color="#a78bfa" yLabel="freq." />
         </div>
       </div>
 
       {/* Tabela */}
-      <div className="card p-4 overflow-auto">
-        <div className="section-title mb-3">
-          Amostra do dataset (20 linhas de {preview.count})
-        </div>
-        <div className="min-w-[900px]">
-          <table>
-            <thead>
-              <tr>
-                {preview.columns.map((c) => <th key={c}>{c}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {preview.rows.map((r, i) => (
-                <tr key={i}>
-                  {preview.columns.map((c) => <td key={c}>{String(r[c])}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={preview.columns}
+        rows={preview.rows}
+        total={preview.count}
+      />
     </div>
   );
 }

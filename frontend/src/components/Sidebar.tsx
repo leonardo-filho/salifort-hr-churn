@@ -1,22 +1,34 @@
 // src/components/Sidebar.tsx
-const LinkItem = ({ children }: { children: React.ReactNode }) => (
-  <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-white/5 text-[color:var(--muted)] hover:text-white transition">
-    {children}
-  </button>
-);
+import { useState } from "react";
 
-// src/components/Sidebar.tsx
 export default function Sidebar() {
+  const [active, setActive] = useState("dashboard");
+
+  const items = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "dataset", label: "Dataset" },
+    { key: "models", label: "Modelos" },
+    { key: "predictions", label: "Previsões" },
+  ];
+
   return (
-    <div className="w-60 h-screen bg-[#0f172a] flex flex-col p-4 border-r border-white/10">
-      <h2 className="text-xl font-bold mb-8">Salifort HR</h2>
-      <nav className="flex flex-col gap-4">
-        <a href="#" className="hover:text-cyan-400">Dashboard</a>
-        <a href="#" className="hover:text-cyan-400">Dataset</a>
-        <a href="#" className="hover:text-cyan-400">Modelos</a>
-        <a href="#" className="hover:text-cyan-400">Previsões</a>
+    <aside className="sidebar-bg w-64 min-h-screen px-4 py-5 border-r border-white/10 flex flex-col">
+      <div className="text-xl font-bold mb-6">Salifort HR</div>
+      <nav className="flex-1 space-y-1">
+        {items.map((it) => (
+          <button
+            key={it.key}
+            onClick={() => setActive(it.key)}
+            className={`w-full text-left px-3 py-2 rounded-lg transition ${
+              active === it.key
+                ? "bg-white/10 text-white font-semibold"
+                : "text-white/70 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            {it.label}
+          </button>
+        ))}
       </nav>
-    </div>
+    </aside>
   );
 }
-
