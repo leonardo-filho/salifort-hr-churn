@@ -54,7 +54,8 @@ O dataset possui **14.999 linhas** e **10 colunas**, incluindo:
     pip install -r requirements.txt
 
 4. Abra o Jupyter Notebook:
-jupyter notebook Capstone.ipynb
+    ```bash
+    jupyter notebook Capstone.ipynb
 
 ## 📈 Resultados esperados
 >Modelo final: Random Forest, com acurácia aproximada de 88–90%.
