@@ -1,86 +1,107 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../lib/api";
+// src/pages/Dashboard.tsx
+import { useEffect, useState } from "react";
+import { getMetrics, getPreview } from "../lib/api";
 import KpiCard from "../components/KpiCard";
 import BarChartSimple from "../components/BarChartSimple";
 
-type PreviewResp = { rows: any[]; columns: string[]; count: number };
-type MetricsResp = {
-  churn_rate: number;
-  avg_hours: number;
-  avg_projects: number;
-  hours_by_left: Record<string, number>;
-  projects_hist: Record<string, number>;
-  top_departments: Record<string, number>;
+type Metrics = {
+  churn_rate?: number;
+  avg_hours?: number;
+  avg_projects?: number;
+  hours_by_left?: Record<string, number>;
+  projects_hist?: Record<string, number>;
+  top_departments?: Record<string, number>;
+};
+
+type Preview = {
+  rows: any[];
+  columns: string[];
+  count: number;
 };
 
 export default function Dashboard() {
-  const [preview, setPreview] = useState<PreviewResp | null>(null);
-  const [metrics, setMetrics] = useState<MetricsResp | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [p, m] = await Promise.all([
-        api.get<PreviewResp>("/dataset/preview?n=20"),
-        api.get<MetricsResp>("/dataset/metrics"),
-      ]);
-      setPreview(p.data);
-      setMetrics(m.data);
-      setLoading(false);
+      try {
+        const m = await getMetrics();
+        const p = await getPreview(20);
+        setMetrics(m);
+        setPreview(p);
+      } catch (e) {
+        console.error(e);
+        setError("Falha ao carregar dados do backend.");
+      }
     })();
   }, []);
 
-  if (loading) return <div style={{ padding: 24 }}>Carregando…</div>;
+  if (error) {
+    return <div style={{color:"var(--muted)"}}>{error}</div>;
+  }
+  if (!metrics || !preview) {
+    return <div className="text-[color:var(--muted)]">Carregando…</div>;
+  }
+
+  // Fallbacks seguros
+  const churn = Number(metrics.churn_rate ?? 0);
+  const avgH  = Number(metrics.avg_hours ?? 0);
+  const avgP  = Number(metrics.avg_projects ?? 0);
+  const hoursByLeft = metrics.hours_by_left ?? {};
+  const projectsHist = metrics.projects_hist ?? {};
 
   return (
-    <div style={{ padding: 24, color: "#e2e8f0", background: "#0a0f1a", minHeight: "100vh" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 16 }}>Dashboard — Dados brutos</h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl md:text-4xl font-bold">Dashboard — Dados brutos</h1>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
-        <KpiCard title="Churn rate" value={`${(metrics!.churn_rate * 100).toFixed(1)}%`} />
-        <KpiCard title="Horas/mês (média)" value={metrics!.avg_hours.toFixed(1)} />
-        <KpiCard title="Projetos (média)" value={metrics!.avg_projects.toFixed(1)} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard title="Churn rate" value={`${(churn * 100).toFixed(1)}%`} />
+        <KpiCard title="Horas/mês (média)" value={avgH.toFixed(1)} />
+        <KpiCard title="Projetos (média)" value={avgP.toFixed(1)} />
       </div>
 
-      {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-        <div>
-          <div style={{ marginBottom: 8 }}>Horas médias — stayed vs left</div>
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="card p-4">
+          <div className="section-title mb-2">Horas médias — stayed vs left</div>
           <BarChartSimple
-            data={Object.entries(metrics!.hours_by_left).map(([name, value]) => ({ name, value }))}
+            data={[
+              { name: "stayed", value: Number(hoursByLeft["0"] ?? hoursByLeft.stayed ?? 0) },
+              { name: "left",   value: Number(hoursByLeft["1"] ?? hoursByLeft.left   ?? 0) },
+            ]}
           />
         </div>
-        <div>
-          <div style={{ marginBottom: 8 }}>Distribuição — nº de projetos</div>
+
+        <div className="card p-4">
+          <div className="section-title mb-2">Distribuição — nº de projetos</div>
           <BarChartSimple
-            data={Object.entries(metrics!.projects_hist).map(([name, value]) => ({ name, value }))}
+            data={Object.entries(projectsHist).map(([k, v]) => ({
+              name: String(k),
+              value: Number(v),
+            }))}
           />
         </div>
       </div>
 
-      {/* Tabela de preview */}
-      <div style={{ background: "#0b1220", borderRadius: 12, padding: 12 }}>
-        <div style={{ marginBottom: 8, fontWeight: 600 }}>Amostra do dataset (20 linhas de {preview!.count})</div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      {/* Tabela */}
+      <div className="card p-4 overflow-auto">
+        <div className="section-title mb-3">
+          Amostra do dataset (20 linhas de {preview.count})
+        </div>
+        <div className="min-w-[900px]">
+          <table>
             <thead>
               <tr>
-                {preview!.columns.map((c) => (
-                  <th key={c} style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #1f2937" }}>
-                    {c}
-                  </th>
-                ))}
+                {preview.columns.map((c) => <th key={c}>{c}</th>)}
               </tr>
             </thead>
             <tbody>
-              {preview!.rows.map((r, i) => (
+              {preview.rows.map((r, i) => (
                 <tr key={i}>
-                  {preview!.columns.map((c) => (
-                    <td key={c} style={{ padding: 8, borderBottom: "1px dashed #111827" }}>
-                      {String(r[c])}
-                    </td>
-                  ))}
+                  {preview.columns.map((c) => <td key={c}>{String(r[c])}</td>)}
                 </tr>
               ))}
             </tbody>
