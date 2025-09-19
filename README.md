@@ -71,11 +71,11 @@ jupyter notebook Capstone.ipynb
     Salário baixo
 
 
-✨ Autor
+## ✨ Autor
 
 👤 Leonardo Filho
-    ```txt
-    Projeto desenvolvido como parte do Google Advanced Data Analytics Certificate.
+
+> Projeto desenvolvido como parte do **Google Advanced Data Analytics Certificate**.
 
 
 ---
