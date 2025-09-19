@@ -23,6 +23,9 @@ df.columns = df.columns.str.strip().str.lower()
 if "time_spend_company" in df.columns and "tenure" not in df.columns:
     df = df.rename(columns={"time_spend_company": "tenure"})
 
+if "average_montly_hours" in df.columns and "average_monthly_hours" not in df.columns:
+    df = df.rename(columns={"average_montly_hours": "average_monthly_hours"})
+    
 # checagem mínima de colunas necessárias
 required = {
     "satisfaction_level",
