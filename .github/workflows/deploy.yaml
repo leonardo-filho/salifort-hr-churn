@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: [SUA_URL_DO_CLOUD_RUN]
+  PROJECT_ID: peak-stream-390503
   SERVICE_NAME: salifort-hr-api
   REGION: us-central1
 
