@@ -2,8 +2,7 @@ name: Deploy to Cloud Run
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -16,21 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Setup Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
       - name: Build and Push Docker Image
         run: |
           gcloud auth configure-docker
-          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} ./backend
+          docker build \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+            -f backend/Dockerfile \
+            .                            # <- contexto na RAIZ
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}
 
       - name: Deploy to Cloud Run
@@ -39,4 +42,5 @@ jobs:
             --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --platform managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --timeout=600
