@@ -1,8 +1,9 @@
 # backend/app.py
 from pathlib import Path
-from typing import Dict
-
+from typing import Dict, List
+from backend.api.routers import eda as eda_router
 import joblib
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,11 +17,13 @@ app = FastAPI(title="Salifort HR Churn API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ajuste se precisar restringir
+    allow_origins=["*"],            # ajuste se precisar restringir
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(eda_router.router, prefix="/eda", tags=["EDA"])
 
 BASE_DIR = Path(__file__).parent
 DATA_PATH = BASE_DIR / "data" / "HR_capstone_dataset.csv"
@@ -31,10 +34,10 @@ model = joblib.load(MODEL_PATH)
 
 
 # ---------------------------------------------------------
-# Utilitários
+# Utilitários de dados
 # ---------------------------------------------------------
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Colunas minúsculas e correções de nomes comuns."""
+    """Normaliza nomes de colunas e corrige typos comuns."""
     df = df.copy()
     df.columns = [c.strip().lower() for c in df.columns]
 
@@ -42,7 +45,7 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     if "average_montly_hours" in df.columns and "average_monthly_hours" not in df.columns:
         df = df.rename(columns={"average_montly_hours": "average_monthly_hours"})
 
-    # alguns datasets trazem time_spend_company; converte para tenure
+    # converte time_spend_company -> tenure, se necessário
     if "tenure" not in df.columns and "time_spend_company" in df.columns:
         df = df.rename(columns={"time_spend_company": "tenure"})
 
@@ -50,6 +53,7 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_dataset() -> pd.DataFrame:
+    """Lê o CSV e padroniza colunas/dtypes."""
     df = pd.read_csv(DATA_PATH)
     df = _normalize_columns(df)
 
@@ -78,9 +82,9 @@ def load_dataset() -> pd.DataFrame:
 
 def _to_native(obj):
     """Converte tipos numpy/pandas para nativos (int/float/str)."""
-    if isinstance(obj, (pd.Int64Dtype.type,)) or str(type(obj)).endswith("int64'>"):
+    if isinstance(obj, (np.integer,)) or str(type(obj)).endswith("int64'>"):
         return int(obj)
-    if isinstance(obj, (pd.Float64Dtype.type,)) or str(type(obj)).endswith("float64'>"):
+    if isinstance(obj, (np.floating,)) or str(type(obj)).endswith("float64'>"):
         return float(obj)
     return obj
 
@@ -90,15 +94,14 @@ def _records_native(rows):
 
 
 # ---------------------------------------------------------
-# Esquema de entrada para previsão
-# (alinhado ao treino com 'tenure')
+# Esquema de entrada para previsão (alinhado ao treino)
 # ---------------------------------------------------------
 class Employee(BaseModel):
     satisfaction_level: float = Field(..., ge=0, le=1)
     last_evaluation: float = Field(..., ge=0, le=1)
     number_project: int = Field(..., ge=0)
     average_monthly_hours: int = Field(..., ge=0)
-    tenure: int = Field(..., ge=0)  # <-- usado no treino
+    tenure: int = Field(..., ge=0)  # usado no treino
     work_accident: int = Field(..., ge=0, le=1)
     promotion_last_5years: int = Field(..., ge=0, le=1)
     department: str
@@ -106,7 +109,7 @@ class Employee(BaseModel):
 
 
 # ---------------------------------------------------------
-# Rotas
+# Rotas principais
 # ---------------------------------------------------------
 @app.get("/")
 def root():
@@ -153,12 +156,11 @@ def dataset_metrics():
     avg_hours = _safe_mean("average_monthly_hours")
     avg_projects = _safe_mean("number_project")
 
-    hours_by_left = (
-        df.groupby("left")["average_monthly_hours"].mean().to_dict()
-        if {"left", "average_monthly_hours"}.issubset(df.columns)
-        else {}
-    )
-    hours_by_left = {("left" if k == 1 else "stayed"): round(float(v), 2) for k, v in hours_by_left.items()}
+    if {"left", "average_monthly_hours"}.issubset(df.columns):
+        hours_by_left = df.groupby("left")["average_monthly_hours"].mean().to_dict()
+        hours_by_left = {("left" if k == 1 else "stayed"): round(float(v), 2) for k, v in hours_by_left.items()}
+    else:
+        hours_by_left = {}
 
     proj_hist = _safe_vc("number_project")
     dept_top = {k: int(v) for k, v in df["department"].value_counts().head(5).to_dict().items()} if "department" in df.columns else {}
@@ -175,3 +177,115 @@ def dataset_metrics():
         "salary_dist": salary_dist,
     }
     return JSONResponse(payload)
+
+
+# =========================
+# EDA helpers e endpoints
+# =========================
+def _load_df_for_eda() -> pd.DataFrame:
+    df = load_dataset().copy()
+    # garante tipos
+    if "left" in df.columns:
+        df["left"] = pd.to_numeric(df["left"], errors="coerce").fillna(0).astype(int)
+    return df
+
+
+@app.get("/eda/satisfaction_hist")
+def eda_satisfaction_hist(bins: int = 20) -> List[Dict[str, float]]:
+    """
+    Histograma de satisfaction_level.
+    Retorna [{name: '0.10', value: 123}, ...]
+    """
+    df = _load_df_for_eda()
+    vals = df["satisfaction_level"].dropna().to_numpy()
+    counts, edges = np.histogram(vals, bins=bins, range=(0, 1))
+    centers = (edges[:-1] + edges[1:]) / 2
+    return [{"name": f"{c:.2f}", "value": int(n)} for c, n in zip(centers, counts)]
+
+
+@app.get("/eda/churn_by_satisfaction")
+def eda_churn_by_satisfaction(bins: int = 10) -> List[Dict[str, float]]:
+    """
+    Taxa de churn (%) por faixa de satisfação.
+    """
+    df = _load_df_for_eda()
+    s = df["satisfaction_level"].clip(0, 1)
+    cats = pd.cut(s, bins=bins, include_lowest=True)
+    out = (
+        df.groupby(cats)["left"]
+        .mean()
+        .reset_index()
+        .rename(columns={"left": "value"})
+    )
+    out["value"] = (out["value"] * 100).round(2)  # em %
+    out = out.rename(columns={"satisfaction_level": "name"})
+    out["name"] = out["satisfaction_level"].astype(str) if "satisfaction_level" in out.columns else out.iloc[:, 0].astype(str)
+    return out[["name", "value"]].to_dict(orient="records")
+
+
+@app.get("/eda/churn_by_projects")
+def eda_churn_by_projects() -> List[Dict[str, float]]:
+    """
+    Taxa de churn (%) por número de projetos.
+    """
+    df = _load_df_for_eda()
+    out = (
+        df.groupby("number_project")["left"]
+        .mean()
+        .reset_index()
+        .rename(columns={"number_project": "name", "left": "value"})
+    )
+    out["value"] = (out["value"] * 100).round(2)
+    out["name"] = out["name"].astype(str)
+    return out.to_dict(orient="records")
+
+
+@app.get("/eda/churn_by_hours")
+def eda_churn_by_hours(step: int = 20) -> List[Dict[str, float]]:
+    """
+    Taxa de churn (%) por faixa de horas/mês (buckets de `step`).
+    """
+    df = _load_df_for_eda()
+    hrs = df["average_monthly_hours"].dropna()
+    if hrs.empty:
+        return []
+    bins = range(int(hrs.min()) // step * step, int(hrs.max()) + step, step)
+    cats = pd.cut(df["average_monthly_hours"], bins=bins, include_lowest=True)
+    out = (
+        df.assign(_bucket=cats)
+        .groupby("_bucket")["left"]
+        .mean()
+        .reset_index()
+        .rename(columns={"_bucket": "name", "left": "value"})
+    )
+    out["value"] = (out["value"] * 100).round(2)
+    out["name"] = out["name"].astype(str)
+    return out.to_dict(orient="records")
+
+
+@app.get("/eda/churn_by_dept_salary")
+def eda_churn_by_dept_salary(top: int = 8):
+    """
+    Para cada departamento top-N por volume, retorna churn % por faixa salarial.
+    Ex.: [{name:'sales', low:12.3, medium:9.9, high:5.1}, ...]
+    """
+    df = _load_df_for_eda()
+    top_depts = df["department"].value_counts().head(top).index.tolist()
+
+    rows: List[Dict[str, float]] = []
+    for dept in top_depts:
+        sub = df[df["department"] == dept]
+
+        def rate(sal: str) -> float:
+            base = sub[sub["salary"] == sal]
+            return float((base["left"].mean() * 100).round(2)) if len(base) else 0.0
+
+        rows.append(
+            {
+                "name": dept,
+                "low": rate("low"),
+                "medium": rate("medium"),
+                "high": rate("high"),
+            }
+        )
+    return rows
