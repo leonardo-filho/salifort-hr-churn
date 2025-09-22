@@ -1,23 +1,25 @@
 // src/App.tsx
-import { Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import PredictForm from "./pages/PredictForm";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+import AppRoutes from "./routes";
+import "./index.css";
 
 export default function App() {
   return (
-    <div className="flex h-full">
+    <div
+      className="flex h-full"
+      style={{
+        background:
+          "radial-gradient(1200px 600px at 85% -10%, rgba(14,165,233,.12), transparent), " +
+          "radial-gradient(900px 600px at -10% 30%, rgba(139,92,246,.12), transparent), " +
+          "var(--bg)",
+      }}
+    >
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-        <main className="p-4 md:p-6 space-y-6">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/predict" element={<PredictForm />} />
-            {/* fallback: manda pra home se rota não existir */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+        <main className="flex-1 p-6 md:p-8 overflow-auto">
+          <AppRoutes />
         </main>
       </div>
     </div>

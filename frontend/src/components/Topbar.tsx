@@ -1,21 +1,36 @@
 // src/components/Topbar.tsx
+import { useLocation, Link } from "react-router-dom";
+
+function titleFromPath(path: string) {
+  if (path.startsWith("/predict")) return "Previsão de Rotatividade";
+  if (path.startsWith("/eda")) return "Gráficos EDA";
+  return "Dashboard — Dados brutos";
+}
+
 export default function Topbar() {
+  const { pathname } = useLocation();
+
   return (
-    <header className="h-16 px-4 sm:px-6 md:px-8 flex items-center justify-between border-b border-white/10"
+    <header
+      className="sticky top-0 z-10 backdrop-blur-sm
+                 border-b border-white/10"
       style={{
         background:
-          "linear-gradient(90deg, rgba(14,165,233,.25), rgba(139,92,246,.25))"
+          "linear-gradient(180deg, rgba(11,18,32,.82), rgba(11,18,32,.55))",
       }}
     >
-      <div className="text-2xl md:text-3xl font-extrabold tracking-tight">
-        Salifort HR · <span className="text-sky-300">Analytics</span>
+      <div className="px-6 md:px-8 py-4 flex items-center gap-4">
+        <Link to="/dashboard" className="text-xl font-semibold text-white/90">
+          Salifort HR • <span className="text-white/70">Analytics</span>
+        </Link>
+
+        <div className="ml-auto">
+          Leonardo Filho
+        </div>
       </div>
 
-      <div className="hidden sm:flex items-center gap-2">
-        <input
-          placeholder="Buscar (ex.: department = sales)"
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 w-64"
-        />
+      <div className="px-6 md:px-8 pb-3 text-2xl font-bold text-white/90">
+        {titleFromPath(pathname)}
       </div>
     </header>
   );
