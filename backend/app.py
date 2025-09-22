@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List
 
 # IMPORT CORRIGIDO (build em ./backend => pacote raiz é /app)
-from api.routers import eda as eda_router
+from backend.api.routers import eda as eda_router
 
 import joblib
 import numpy as np
