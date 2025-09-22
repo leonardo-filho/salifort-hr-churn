@@ -1,11 +1,14 @@
 # backend/app.py
 from pathlib import Path
 from typing import Dict, List
-from backend.api.routers import eda as eda_router
+
+# IMPORT CORRIGIDO (build em ./backend => pacote raiz é /app)
+from api.routers import eda as eda_router
+
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -17,7 +20,7 @@ app = FastAPI(title="Salifort HR Churn API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # ajuste se precisar restringir
+    allow_origins=["*"],   # ajuste se precisar restringir
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,15 +32,21 @@ BASE_DIR = Path(__file__).parent
 DATA_PATH = BASE_DIR / "data" / "HR_capstone_dataset.csv"
 MODEL_PATH = BASE_DIR / "models" / "rf_model.joblib"
 
-# Carrega o modelo/pipeline (treinado com 'tenure')
-model = joblib.load(MODEL_PATH)
-
+# Carrega o modelo/pipeline (tolerante a falhas)
+model = None
+try:
+    if MODEL_PATH.exists():
+        model = joblib.load(MODEL_PATH)
+        print(f"[boot] Modelo carregado de {MODEL_PATH}")
+    else:
+        print(f"[boot][WARN] Modelo não encontrado em {MODEL_PATH}")
+except Exception as e:
+    print(f"[boot][WARN] Falha ao carregar modelo: {e}")
 
 # ---------------------------------------------------------
 # Utilitários de dados
 # ---------------------------------------------------------
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Normaliza nomes de colunas e corrige typos comuns."""
     df = df.copy()
     df.columns = [c.strip().lower() for c in df.columns]
 
@@ -53,11 +62,9 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_dataset() -> pd.DataFrame:
-    """Lê o CSV e padroniza colunas/dtypes."""
     df = pd.read_csv(DATA_PATH)
     df = _normalize_columns(df)
 
-    # garante dtypes numéricos onde necessário
     num_cols = [
         "satisfaction_level",
         "last_evaluation",
@@ -72,7 +79,6 @@ def load_dataset() -> pd.DataFrame:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    # strings normalizadas
     for c in ["department", "salary"]:
         if c in df.columns:
             df[c] = df[c].astype(str).str.strip().str.lower()
@@ -81,7 +87,6 @@ def load_dataset() -> pd.DataFrame:
 
 
 def _to_native(obj):
-    """Converte tipos numpy/pandas para nativos (int/float/str)."""
     if isinstance(obj, (np.integer,)) or str(type(obj)).endswith("int64'>"):
         return int(obj)
     if isinstance(obj, (np.floating,)) or str(type(obj)).endswith("float64'>"):
@@ -115,12 +120,16 @@ class Employee(BaseModel):
 def root():
     return {"status": "ok", "message": "API de previsão de rotatividade no ar", "docs": "/docs"}
 
+@app.get("/health")
+def health():
+    return {"ok": True, "model_loaded": model is not None}
 
 @app.post("/predict")
 def predict(emp: Employee):
-    # prepara DataFrame com os MESMOS nomes usados no treino
+    if model is None:
+        raise HTTPException(status_code=503, detail="Modelo indisponível no servidor")
+
     payload = emp.dict()
-    # normaliza strings como no dataset
     payload["department"] = payload["department"].strip().lower()
     payload["salary"] = payload["salary"].strip().lower()
 
@@ -136,16 +145,13 @@ def dataset_preview(n: int = 50):
     n = max(1, min(int(n), 500))
     rows = df.head(n).to_dict(orient="records")
     rows = _records_native(rows)
-    return JSONResponse(
-        {"rows": rows, "columns": list(df.columns), "count": int(len(df))}
-    )
+    return JSONResponse({"rows": rows, "columns": list(df.columns), "count": int(len(df))})
 
 
 @app.get("/dataset/metrics")
 def dataset_metrics():
     df = load_dataset()
 
-    # métricas protegidas contra ausência de colunas
     def _safe_mean(col: str, default: float = 0.0) -> float:
         return float(df[col].mean()) if col in df.columns and len(df[col]) else default
 
@@ -178,36 +184,25 @@ def dataset_metrics():
     }
     return JSONResponse(payload)
 
-
 # =========================
 # EDA helpers e endpoints
 # =========================
 def _load_df_for_eda() -> pd.DataFrame:
     df = load_dataset().copy()
-    # garante tipos
     if "left" in df.columns:
         df["left"] = pd.to_numeric(df["left"], errors="coerce").fillna(0).astype(int)
     return df
 
-
 @app.get("/eda/satisfaction_hist")
 def eda_satisfaction_hist(bins: int = 20) -> List[Dict[str, float]]:
-    """
-    Histograma de satisfaction_level.
-    Retorna [{name: '0.10', value: 123}, ...]
-    """
     df = _load_df_for_eda()
     vals = df["satisfaction_level"].dropna().to_numpy()
     counts, edges = np.histogram(vals, bins=bins, range=(0, 1))
     centers = (edges[:-1] + edges[1:]) / 2
     return [{"name": f"{c:.2f}", "value": int(n)} for c, n in zip(centers, counts)]
 
-
 @app.get("/eda/churn_by_satisfaction")
 def eda_churn_by_satisfaction(bins: int = 10) -> List[Dict[str, float]]:
-    """
-    Taxa de churn (%) por faixa de satisfação.
-    """
     df = _load_df_for_eda()
     s = df["satisfaction_level"].clip(0, 1)
     cats = pd.cut(s, bins=bins, include_lowest=True)
@@ -217,17 +212,13 @@ def eda_churn_by_satisfaction(bins: int = 10) -> List[Dict[str, float]]:
         .reset_index()
         .rename(columns={"left": "value"})
     )
-    out["value"] = (out["value"] * 100).round(2)  # em %
+    out["value"] = (out["value"] * 100).round(2)
     out = out.rename(columns={"satisfaction_level": "name"})
     out["name"] = out["satisfaction_level"].astype(str) if "satisfaction_level" in out.columns else out.iloc[:, 0].astype(str)
     return out[["name", "value"]].to_dict(orient="records")
 
-
 @app.get("/eda/churn_by_projects")
 def eda_churn_by_projects() -> List[Dict[str, float]]:
-    """
-    Taxa de churn (%) por número de projetos.
-    """
     df = _load_df_for_eda()
     out = (
         df.groupby("number_project")["left"]
@@ -239,12 +230,8 @@ def eda_churn_by_projects() -> List[Dict[str, float]]:
     out["name"] = out["name"].astype(str)
     return out.to_dict(orient="records")
 
-
 @app.get("/eda/churn_by_hours")
 def eda_churn_by_hours(step: int = 20) -> List[Dict[str, float]]:
-    """
-    Taxa de churn (%) por faixa de horas/mês (buckets de `step`).
-    """
     df = _load_df_for_eda()
     hrs = df["average_monthly_hours"].dropna()
     if hrs.empty:
@@ -262,13 +249,8 @@ def eda_churn_by_hours(step: int = 20) -> List[Dict[str, float]]:
     out["name"] = out["name"].astype(str)
     return out.to_dict(orient="records")
 
-
 @app.get("/eda/churn_by_dept_salary")
 def eda_churn_by_dept_salary(top: int = 8):
-    """
-    Para cada departamento top-N por volume, retorna churn % por faixa salarial.
-    Ex.: [{name:'sales', low:12.3, medium:9.9, high:5.1}, ...]
-    """
     df = _load_df_for_eda()
     top_depts = df["department"].value_counts().head(top).index.tolist()
 
