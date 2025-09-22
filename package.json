@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "react-icons": "^5.5.0"
-  }
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  },
+  "scripts": {
+    "deploy": "gh-pages -d dist"
+  },
+  "homepage": "http://leonardo-filho.github.io/salifort-hr-churn"
 }
