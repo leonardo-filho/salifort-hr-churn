@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+// o "React" foi removido do import
 
 type Props = {
   columns: string[];
