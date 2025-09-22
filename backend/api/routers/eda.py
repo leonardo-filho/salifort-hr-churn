@@ -1,4 +1,3 @@
-# backend/app/routers/eda.py
 from pathlib import Path
 from typing import Dict, List, Any, Union
 import numpy as np
@@ -9,7 +8,7 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 
 # --------- util ---------
-# .../backend/api/routers/eda.py  -> subir 2 níveis para chegar em .../backend
+# .../backend/api/routers/eda.py  -> subir 2 níveis para chegar em .../backend
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 DATA_PATH = BACKEND_DIR / "data" / "HR_capstone_dataset.csv"
 
@@ -53,24 +52,13 @@ def satisfaction_hist(bins: int = 20) -> List[Dict[str, float]]:
 @router.get("/top_departments")
 def top_departments(top: int = 8) -> List[Dict[str, Union[str, int]]]:
     df = _load_df()
-
-    # Count leavers (left == 1) by department
-    # and reset the index, naming the new columns 'name' and 'value'
     vc = (
         df.loc[df["left"] == 1, "department"]
-          .value_counts()
-          .head(top)
-          .reset_index()
+        .value_counts()
+        .head(top)
+        .reset_index()
     )
-    # The default behavior of reset_index() on a series creates two columns:
-    # the old index (department) and the new column for counts.
-    # The new count column is named 'count' by default in pandas 2.x
-    # or the name of the series.
-    # We can rename them explicitly.
-
     vc.columns = ["name", "value"]
-
-    # Serialize to a list of dictionaries
     out = vc.to_dict(orient="records")
     return out
 
@@ -81,12 +69,13 @@ def churn_by_satisfaction(bins: int = 10) -> List[Dict[str, float]]:
     cats = pd.cut(s, bins=bins, include_lowest=True)
     out = (
         df.groupby(cats)["left"]
-          .mean()
-          .reset_index()
-          .rename(columns={"left": "value", "satisfaction_level": "name"})
+        .mean()
+        .reset_index()
+        .rename(columns={"left": "value", "satisfaction_level": "name"})
     )
+    # Calcule o ponto médio do intervalo e use-o como nome
+    out["name"] = out["name"].apply(lambda x: x.mid).astype(float).round(2)
     out["value"] = (out["value"] * 100).round(2)
-    out["name"] = out["name"].astype(str)
     return out.to_dict(orient="records")
 
 @router.get("/churn_by_projects")
@@ -94,9 +83,9 @@ def churn_by_projects() -> List[Dict[str, float]]:
     df = _load_df()
     out = (
         df.groupby("number_project")["left"]
-          .mean()
-          .reset_index()
-          .rename(columns={"number_project": "name", "left": "value"})
+        .mean()
+        .reset_index()
+        .rename(columns={"number_project": "name", "left": "value"})
     )
     out["value"] = (out["value"] * 100).round(2)
     out["name"] = out["name"].astype(str)
@@ -110,12 +99,13 @@ def churn_by_hours(step: int = 20) -> List[Dict[str, float]]:
     cats = pd.cut(hrs, bins=bins, include_lowest=True)
     out = (
         df.groupby(cats)["left"]
-          .mean()
-          .reset_index()
-          .rename(columns={"average_monthly_hours": "name", "left": "value"})
+        .mean()
+        .reset_index()
+        .rename(columns={"average_monthly_hours": "name", "left": "value"})
     )
+    # Calcule o ponto médio do intervalo e use-o como nome
+    out["name"] = out["name"].apply(lambda x: x.mid).astype(float).round(2)
     out["value"] = (out["value"] * 100).round(2)
-    out["name"] = out["name"].astype(str)
     return out.to_dict(orient="records")
 
 @router.get("/churn_by_dept_salary")
