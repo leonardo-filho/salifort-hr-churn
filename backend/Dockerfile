@@ -13,8 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copie o resto do código para o diretório de trabalho
 COPY . .
 
-# Exponha a porta que a API usará
-EXPOSE 8000
-
-# Comando para iniciar o servidor Uvicorn quando o contêiner for executado
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando para iniciar o servidor Uvicorn usando a variável de ambiente PORT
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
