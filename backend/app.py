@@ -19,7 +19,8 @@ from pydantic import BaseModel, Field
 app = FastAPI(title="Salifort HR Churn API", version="1.0")
 
 ALLOWED_ORIGINS = [
-    "https://leonardo-filho.github.io",  # se usar GH Pages
+    "https://leonardo-filho.github.io",  
+    "http://localhost:5173"
 ]
 
 app.add_middleware(
