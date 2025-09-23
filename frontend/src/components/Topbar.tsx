@@ -1,5 +1,5 @@
-// src/components/Topbar.tsx
 import { useLocation, Link } from "react-router-dom";
+import { FaBars } from "react-icons/fa";
 
 function titleFromPath(path: string) {
   if (path.startsWith("/predict")) return "Previsão de Rotatividade";
@@ -7,7 +7,11 @@ function titleFromPath(path: string) {
   return "Dashboard — Dados brutos";
 }
 
-export default function Topbar() {
+type Props = {
+    onMenuClick: () => void;
+};
+
+export default function Topbar({ onMenuClick }: Props) {
   const { pathname } = useLocation();
 
   return (
@@ -20,11 +24,16 @@ export default function Topbar() {
       }}
     >
       <div className="px-6 md:px-8 py-4 flex items-center gap-4">
-        <Link to="/dashboard" className="text-xl font-semibold text-white/90">
+        {/* Botão de Menu para mobile */}
+        <button onClick={onMenuClick} className="lg:hidden text-white/80 hover:text-white transition-colors" aria-label="Abrir menu">
+            <FaBars size={20} />
+        </button>
+
+        <Link to="/dashboard" className="text-xl font-semibold text-white/90 hidden sm:block">
           Salifort HR • <span className="text-white/70">Analytics</span>
         </Link>
 
-        <div className="ml-auto">
+        <div className="ml-auto text-white/90">
           Leonardo Filho
         </div>
       </div>
@@ -35,3 +44,4 @@ export default function Topbar() {
     </header>
   );
 }
+
