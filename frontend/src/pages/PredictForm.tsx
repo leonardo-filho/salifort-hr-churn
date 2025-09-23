@@ -252,7 +252,6 @@ export default function PredictForm() {
           )}
         </div>
 
-        {/* Dicas rápidas */}
         <div className="card p-6">
           <div className="section-title mb-4">Dicas</div>
           <ul className="list-disc pl-5 text-sm space-y-2 text-white/60">

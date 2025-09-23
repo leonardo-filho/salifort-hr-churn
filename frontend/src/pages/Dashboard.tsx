@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import { getMetrics, getPreview } from "../lib/api";
 import KpiCard from "../components/KpiCard";

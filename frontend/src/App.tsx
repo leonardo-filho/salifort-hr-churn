@@ -5,7 +5,7 @@ import AppRoutes from "./routes";
 import "./index.css";
 
 export default function App() {
-  // Estado para controlar a visibilidade da sidebar no mobile
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -18,14 +18,11 @@ export default function App() {
           "var(--bg)",
       }}
     >
-      {/* --- Sidebar para Desktop --- */}
-      {/* A classe 'shrink-0' impede a sidebar de encolher. */}
+
       <div className="hidden lg:flex lg:shrink-0">
         <Sidebar />
       </div>
 
-      {/* --- Sidebar para Mobile (Overlay) --- */}
-      {/* Esta parte permanece a mesma, pois já funciona bem no celular */}
       <div className="lg:hidden">
          <Sidebar
             isOpen={isSidebarOpen}
