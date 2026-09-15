@@ -16,10 +16,14 @@ export const api = axios.create({
 // Interceptor de resposta: sempre retornar .data e normalizar erros
 api.interceptors.response.use(
   (res) => res,
-  (err: AxiosError) => {
+  (err: AxiosError<unknown>) => {
     const status = err.response?.status;
+    const payload = err.response?.data;
+    const detail = typeof payload === "object" && payload !== null && "detail" in payload
+      ? String((payload as { detail: unknown }).detail)
+      : undefined;
     const message =
-      (err.response?.data as any)?.detail ||
+      detail ||
       err.message ||
       "Erro de rede ao conversar com o backend.";
     return Promise.reject({ status, message });
@@ -30,12 +34,14 @@ api.interceptors.response.use(
  * Tipagens úteis
  * =============== */
 export type DatasetMetrics = {
+  count: number;
   churn_rate: number;
   avg_hours: number;
   avg_projects: number;
   hours_by_left: Record<string, number>;   // {"0": x, "1": y}
   projects_hist: Record<string, number>;   // {"2": 1800, ...}
   top_departments?: Record<string, number>;
+  salary_dist?: Record<string, number>;
 };
 
 export type PreviewResponse = {
@@ -44,8 +50,8 @@ export type PreviewResponse = {
   count: number;                            // total no dataset
 };
 
-export type SatisfactionBin = { name: string; value: number }; // histograma
-export type DeptTop = { name: string; value: number };         // top departamentos
+export type NamedValue = { name: string; value: number };
+export type DeptSalaryRow = { name: string; low: number; medium: number; high: number };
 
 export type PredictRequest = {
   satisfaction_level: number;
@@ -82,29 +88,29 @@ export const getPreview = (n = 20, signal?: AbortSignal) =>
  * EDA API
  * ======= */
 export const getSatisfactionHist = (signal?: AbortSignal) =>
-  dataOf<SatisfactionBin[]>(
+  dataOf<NamedValue[]>(
     api.get("/eda/satisfaction_hist", { signal })
   );
 
 /** Se você ainda não criou esse endpoint no backend, basta retornar
  *  algo como [{name:'sales', value:123}, ...] */
 export const getTopDepartments = (signal?: AbortSignal) =>
-  dataOf<DeptTop[]>(
+  dataOf<NamedValue[]>(
     api.get("/eda/top_departments", { signal })
   );
 
 // Gráficos adicionais (seu notebook → backend)
 export const churnBySatisfaction = (signal?: AbortSignal) =>
-  dataOf<SatisfactionBin[]>(api.get("/eda/churn_by_satisfaction", { signal }));
+  dataOf<NamedValue[]>(api.get("/eda/churn_by_satisfaction", { signal }));
 
 export const churnByProjects = (signal?: AbortSignal) =>
-  dataOf<SatisfactionBin[]>(api.get("/eda/churn_by_projects", { signal }));
+  dataOf<NamedValue[]>(api.get("/eda/churn_by_projects", { signal }));
 
 export const churnByHours = (signal?: AbortSignal) =>
-  dataOf<SatisfactionBin[]>(api.get("/eda/churn_by_hours", { signal }));
+  dataOf<NamedValue[]>(api.get("/eda/churn_by_hours", { signal }));
 
 export const churnByDeptSalary = (signal?: AbortSignal) =>
-  dataOf<{ name: string; low: number; medium: number; high: number }[]>(
+  dataOf<DeptSalaryRow[]>(
     api.get("/eda/churn_by_dept_salary", { signal })
   );
 

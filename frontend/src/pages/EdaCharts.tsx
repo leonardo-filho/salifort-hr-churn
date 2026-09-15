@@ -1,169 +1,126 @@
 import { useEffect, useState } from "react";
-import BarChartSimple from "../components/BarChartSimple";
+import { Link } from "react-router-dom";
+import { FiArrowRight, FiInfo } from "react-icons/fi";
 import BarChartGrouped from "../components/BarChartGrouped";
+import BarChartSimple from "../components/BarChartSimple";
+import TrendChart from "../components/TrendChart";
 import {
+  demoChurnByHours,
+  demoChurnByProjects,
+  demoChurnBySatisfaction,
+  demoDeptSalary,
+  demoSatisfactionDistribution,
+  demoTopDepartments,
+} from "../data/demo";
+import {
+  churnByDeptSalary,
+  churnByHours,
+  churnByProjects,
+  churnBySatisfaction,
   getSatisfactionHist,
   getTopDepartments,
-  churnBySatisfaction,
-  churnByProjects,
-  churnByHours,
-  churnByDeptSalary,
+  type DeptSalaryRow,
+  type NamedValue,
 } from "../lib/api";
 
+type AnalysisData = {
+  satisfaction: NamedValue[];
+  satisfactionRisk: NamedValue[];
+  projectRisk: NamedValue[];
+  hoursRisk: NamedValue[];
+  departments: NamedValue[];
+  salaryRisk: DeptSalaryRow[];
+};
+
+const fallback: AnalysisData = {
+  satisfaction: demoSatisfactionDistribution,
+  satisfactionRisk: demoChurnBySatisfaction,
+  projectRisk: demoChurnByProjects,
+  hoursRisk: demoChurnByHours,
+  departments: demoTopDepartments,
+  salaryRisk: demoDeptSalary,
+};
+
 export default function EdaCharts() {
-  const [satisfactionHist, setSatisfactionHist] = useState<any[]>([]);
-  const [topDepartments, setTopDepartments] = useState<any[]>([]);
-  const [churnBySat, setChurnBySat] = useState<any[]>([]);
-  const [churnByProj, setChurnByProj] = useState<any[]>([]);
-  const [churnByHrs, setChurnByHrs] = useState<any[]>([]);
-  const [churnByDeptSal, setChurnByDeptSal] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<AnalysisData | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [
-          hist,
-          depts,
-          churnSat,
-          churnProj,
-          churnHrs,
-          churnDeptSal,
-        ] = await Promise.all([
-          getSatisfactionHist(),
-          getTopDepartments(),
-          churnBySatisfaction(),
-          churnByProjects(),
-          churnByHours(),
-          churnByDeptSalary(),
-        ]);
-        setSatisfactionHist(hist);
-        setTopDepartments(depts);
-        setChurnBySat(churnSat);
-        setChurnByProj(churnProj);
-        setChurnByHrs(churnHrs);
-        setChurnByDeptSal(churnDeptSal);
-      } catch (e) {
-        console.error(e);
-        setError("Falha ao carregar gráficos EDA.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    const controller = new AbortController();
+    Promise.all([
+      getSatisfactionHist(controller.signal),
+      churnBySatisfaction(controller.signal),
+      churnByProjects(controller.signal),
+      churnByHours(controller.signal),
+      getTopDepartments(controller.signal),
+      churnByDeptSalary(controller.signal),
+    ]).then(([satisfaction, satisfactionRisk, projectRisk, hoursRisk, departments, salaryRisk]) => {
+      setData({ satisfaction, satisfactionRisk, projectRisk, hoursRisk, departments, salaryRisk });
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      setData(fallback);
+      setDemoMode(true);
+    });
+    return () => controller.abort();
   }, []);
 
-  if (error) {
-    return <div className="text-red-400">{error}</div>;
-  }
-  if (loading) {
-    return <div className="text-[color:var(--muted)]">Carregando gráficos…</div>;
-  }
+  if (!data) return <div className="dashboard-skeleton" role="status"><span /><span /><span /></div>;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Distribuição de satisfação */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">Distribuição de satisfação</div>
-          {satisfactionHist.length > 0 ? (
-            <BarChartSimple
-              data={satisfactionHist.map((d: any) => ({
-                name: d.bin ?? d.name,
-                value: d.count ?? d.value,
-              }))}
-              color="#38bdf8"
-              yLabel="freq."
-            />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/satisfaction_hist).
-            </div>
-          )}
-        </div>
+    <div className="page page-analysis">
+      <header className="section-page-header">
+        <div><p className="eyebrow">Exploração <span>02</span></p><h1>Onde o risco<br /><em>muda de forma.</em></h1></div>
+        <p>Seis recortes para sair da correlação genérica e localizar os pontos em que satisfação, carga e remuneração mudam de comportamento.</p>
+      </header>
 
-        {/* Taxa de evasão (churn) por satisfação */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">Taxa de evasão × satisfação</div>
-          {churnBySat.length > 0 ? (
-            <BarChartSimple
-              data={churnBySat}
-              color="#f87171"
-              yLabel="taxa (%)"
-            />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/churn_by_satisfaction).
-            </div>
-          )}
-        </div>
+      {demoMode && <div className="source-notice compact" role="status"><span>Modo demonstração</span><p>Agregados versionados do conjunto original.</p></div>}
 
-        {/* Taxa de evasão (churn) por número de projetos */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">Taxa de evasão × nº projetos</div>
-          {churnByProj.length > 0 ? (
-            <BarChartSimple
-              data={churnByProj}
-              color="#e879f9"
-              yLabel="taxa (%)"
-            />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/churn_by_projects).
-            </div>
-          )}
-        </div>
+      <section className="signal-strip" aria-label="Principais achados">
+        <article><span>01</span><strong>78,2%</strong><p>de saída entre 280 e 319 horas/mês</p></article>
+        <article><span>02</span><strong>100%</strong><p>de saída com sete projetos no conjunto</p></article>
+        <article><span>03</span><strong>4,5×</strong><p>mais saída em salários baixos que altos</p></article>
+      </section>
 
-        {/* Taxa de evasão (churn) por carga horária */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">Taxa de evasão × carga horária</div>
-          {churnByHrs.length > 0 ? (
-            <BarChartSimple
-              data={churnByHrs}
-              color="#facc15"
-              yLabel="taxa (%)"
-            />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/churn_by_hours).
-            </div>
-          )}
-        </div>
+      <section className="analysis-grid">
+        <article className="analysis-card analysis-wide">
+          <div className="panel-heading"><div><span>Satisfação</span><h2>O risco tem dois vales — e dois picos.</h2></div><small>taxa de saída</small></div>
+          <p className="chart-intro">A relação não é linear. Faixas muito baixas concentram saídas, mas há um segundo grupo de risco entre 0,3 e 0,5.</p>
+          <TrendChart data={data.satisfactionRisk} ariaLabel="Taxa de saída por faixa de satisfação" />
+        </article>
 
-        {/* Top departamentos */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">Departamentos com maior saída</div>
-          {topDepartments.length > 0 ? (
-            <BarChartSimple
-              data={topDepartments.map((d: any) => ({
-                name: d.department ?? d.name,
-                value: d.left_count ?? d.value,
-              }))}
-              color="#a78bfa"
-              yLabel="saídas"
-            />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/top_departments).
-            </div>
-          )}
-        </div>
+        <article className="analysis-card">
+          <div className="panel-heading"><div><span>Alocação</span><h2>Projetos simultâneos</h2></div><small>% saída</small></div>
+          <BarChartSimple data={data.projectRisk} ariaLabel="Taxa de saída por número de projetos" suffix="%" color="#d8ff34" />
+          <p className="chart-footnote"><FiInfo /> Três e quatro projetos formam a zona de menor saída observada.</p>
+        </article>
 
-        {/* Taxa de evasão por Departamento × Salário */}
-        <div className="card p-4 h-[360px]">
-          <div className="section-title mb-2">
-            Taxa de evasão por Departamento × Salário
-          </div>
-          {churnByDeptSal.length > 0 ? (
-            <BarChartGrouped data={churnByDeptSal} />
-          ) : (
-            <div className="text-white/60 text-sm">
-              Nenhum dado disponível (implemente o endpoint /eda/churn_by_dept_salary).
-            </div>
-          )}
-        </div>
-      </div>
+        <article className="analysis-card">
+          <div className="panel-heading"><div><span>Carga</span><h2>Horas mensais</h2></div><small>% saída</small></div>
+          <TrendChart data={data.hoursRisk} ariaLabel="Taxa de saída por faixa de horas mensais" />
+          <p className="chart-footnote"><FiInfo /> Os extremos de carga exigem leituras diferentes, não uma meta única.</p>
+        </article>
+
+        <article className="analysis-card analysis-wide">
+          <div className="panel-heading"><div><span>Contexto</span><h2>Salário muda o risco dentro da mesma área.</h2></div><small>% saída</small></div>
+          <p className="chart-intro">A faixa salarial baixa aparece acima das demais em quase todos os departamentos. Isso é associação no conjunto, não prova de causalidade.</p>
+          <BarChartGrouped data={data.salaryRisk} />
+        </article>
+
+        <article className="analysis-card">
+          <div className="panel-heading"><div><span>Volume</span><h2>Saídas por departamento</h2></div><small>pessoas</small></div>
+          <BarChartSimple data={data.departments.slice(0, 6)} ariaLabel="Quantidade de saídas por departamento" horizontal color="#ff7657" />
+        </article>
+
+        <article className="analysis-card">
+          <div className="panel-heading"><div><span>Distribuição</span><h2>Níveis de satisfação</h2></div><small>pessoas</small></div>
+          <BarChartSimple data={data.satisfaction} ariaLabel="Distribuição dos níveis de satisfação" color="#7d8b82" highlightMax={false} />
+        </article>
+      </section>
+
+      <section className="analysis-cta">
+        <div><span>Próximo passo</span><h2>Transforme padrões em um cenário.</h2></div>
+        <Link className="primary-action" to="/predict" viewTransition>Abrir laboratório <FiArrowRight /></Link>
+      </section>
     </div>
   );
 }

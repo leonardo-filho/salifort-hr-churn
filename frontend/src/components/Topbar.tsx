@@ -1,47 +1,20 @@
-import { useLocation, Link } from "react-router-dom";
-import { FaBars } from "react-icons/fa";
+import { FiMenu } from "react-icons/fi";
 
-function titleFromPath(path: string) {
-  if (path.startsWith("/predict")) return "Previsão de Rotatividade";
-  if (path.startsWith("/eda")) return "Gráficos EDA";
-  return "Dashboard — Dados brutos";
-}
-
-type Props = {
-    onMenuClick: () => void;
-};
-
-export default function Topbar({ onMenuClick }: Props) {
-  const { pathname } = useLocation();
-
+export default function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header
-      className="sticky top-0 z-10 backdrop-blur-sm
-                 border-b border-white/10"
-      style={{
-        background:
-          "linear-gradient(180deg, rgba(11,18,32,.82), rgba(11,18,32,.55))",
-      }}
-    >
-      <div className="px-6 md:px-8 py-4 flex items-center gap-4">
-        {/* Botão de Menu para mobile */}
-        <button onClick={onMenuClick} className="lg:hidden text-white/80 hover:text-white transition-colors" aria-label="Abrir menu">
-            <FaBars size={20} />
-        </button>
-
-        <Link to="/dashboard" className="text-xl font-semibold text-white/90 hidden sm:block">
-          Salifort HR • <span className="text-white/70">Analytics</span>
-        </Link>
-
-        <div className="ml-auto text-white/90">
-          Leonardo Filho
-        </div>
+    <header className="topbar">
+      <button type="button" className="icon-button menu-button" onClick={onMenuClick} aria-label="Abrir menu">
+        <FiMenu />
+      </button>
+      <div className="topbar-context">
+        <span className="status-dot" aria-hidden="true" />
+        <span>Estudo demonstrativo</span>
+        <span className="context-separator" />
+        <span>14.999 registros</span>
       </div>
-
-      <div className="px-6 md:px-8 pb-3 text-2xl font-bold text-white/90">
-        {titleFromPath(pathname)}
-      </div>
+      <a className="author-link" href="https://leonardo-filho.vercel.app" target="_blank" rel="noreferrer">
+        <span>Por</span> Leonardo Filho <span aria-hidden="true">↗</span>
+      </a>
     </header>
   );
 }
-

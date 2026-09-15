@@ -1,32 +1,25 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { DeptSalaryRow } from "../lib/api";
 
-export default function BarChartGrouped({ data }: { data: any[] }) {
-  const salaries = ['low', 'medium', 'high'];
-  const colors = {
-    low: '#f87171',
-    medium: '#facc15',
-    high: '#38bdf8',
-  };
-
+export default function BarChartGrouped({ data }: { data: DeptSalaryRow[] }) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart
-        data={data}
-        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb40" />
-        <XAxis dataKey="name" stroke="#e5e7eb" tick={{ fill: '#e5e7eb' }} />
-        <YAxis stroke="#e5e7eb" tick={{ fill: '#e5e7eb' }} label={{ value: 'Taxa (%)', angle: -90, position: 'insideLeft', fill: '#e5e7eb', dy: 30 }} />
-        <Tooltip
-          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-          labelStyle={{ color: '#e5e7eb' }}
-          formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, name.charAt(0).toUpperCase() + name.slice(1)]}
-        />
-        <Legend wrapperStyle={{ paddingTop: '10px' }} />
-        {salaries.map((s) => (
-          <Bar key={s} dataKey={s} fill={colors[s as 'low' | 'medium' | 'high']} name={s.charAt(0).toUpperCase() + s.slice(1)} />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="chart-wrap" role="img" aria-label="Taxa de saída por departamento e faixa salarial">
+      <ResponsiveContainer width="100%" height={330}>
+        <BarChart data={data} margin={{ top: 12, right: 8, left: -14, bottom: 16 }}>
+          <CartesianGrid stroke="rgba(242,239,230,.09)" vertical={false} />
+          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#898981", fontSize: 10 }} interval={0} angle={-20} textAnchor="end" />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: "#74746d", fontSize: 10 }} unit="%" />
+          <Tooltip
+            cursor={{ fill: "rgba(216,255,52,.04)" }}
+            contentStyle={{ background: "#171714", border: "1px solid rgba(242,239,230,.16)", borderRadius: 0 }}
+            formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]}
+          />
+          <Legend iconType="plainline" wrapperStyle={{ fontSize: 11, color: "#a8a89f" }} />
+          <Bar dataKey="low" name="Salário baixo" fill="#ff7657" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="medium" name="Salário médio" fill="#d8ff34" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="high" name="Salário alto" fill="#7d8b82" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
